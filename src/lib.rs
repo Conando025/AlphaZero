@@ -1,9 +1,12 @@
+#![allow(unused)]
+
 use std::collections::BTreeMap;
 use std::mem::MaybeUninit;
 use std::{cell::RefCell, rc::Rc};
 
 pub struct Tree {
     statistics: Stats,
+    to_play: Player,
     children: Option<BTreeMap<Action, Node>>,
 }
 
@@ -16,7 +19,6 @@ pub struct Action {}
 pub struct Stats {
     visit_count: f64,
     total_action_value: f64,
-    mean_action_value: f64,
     prior_probability: f64,
 }
 
@@ -25,7 +27,6 @@ impl Stats {
         Self {
             visit_count: 0.0,
             total_action_value: 0.0,
-            mean_action_value: 0.0,
             prior_probability: prior,
         }
     }
@@ -52,6 +53,7 @@ impl AlphaZero {
     fn run_mcts(&self, game_state: GameState) -> Action {
         let root: Node = Rc::new(RefCell::new(Tree {
             statistics: Stats::init(0.0),
+            to_play: game_state.perspective(),
             children: None,
         }));
         evaluate(root.clone(), &game_state);
@@ -66,7 +68,7 @@ impl AlphaZero {
             let mut is_leaf = root.borrow().children.is_none();
 
             while !is_leaf {
-                let (action, selected_node) = self.select_action(&game_state, root.clone());
+                let (action, selected_node) = self.select_child(&game_state, root.clone());
                 game_state.apply(action);
                 node = selected_node.clone();
                 search_path.push(node.clone());
@@ -77,12 +79,11 @@ impl AlphaZero {
             backpropagate(&search_path, value, game_state.perspective());
         }
 
-        let (choosen_action, _) = self.select_action(&game_state, root);
-        return choosen_action;
+        self.select_action(&game_state, root)
     }
 
     #[allow(non_snake_case)]
-    fn select_action(&self, game_state: &GameState, node: Node) -> (Action, Node) {
+    fn select_child(&self, game_state: &GameState, node: Node) -> (Action, Node) {
         let mut best: Option<(f64, (Action, Node))> = None;
         let node = node.borrow();
         let Some(action_map) = node.children.as_ref() else {
@@ -102,7 +103,7 @@ impl AlphaZero {
             let P = child_statistics.prior_probability;
             let U = C * P * SqrtN / (1.0 + N);
 
-            let Q = child_statistics.mean_action_value;
+            let Q = child_statistics.total_action_value / N;
 
             let metric = Q + U;
             let Some((best_metric, _)) = &best else {
@@ -121,6 +122,10 @@ impl AlphaZero {
 
         return result;
     }
+
+    fn select_action(&self, game_state: &GameState, node: Node) -> Action {
+        todo!()
+    }
 }
 
 fn evaluate(node: Node, game_state: &GameState) -> f64 {
@@ -128,7 +133,20 @@ fn evaluate(node: Node, game_state: &GameState) -> f64 {
 }
 
 fn backpropagate(path: &Vec<Node>, value: f64, perspective: Player) {
-    todo!("backpropagate")
+    for node in path {
+        let mut node = node.borrow_mut();
+        let node_perspective = { node.to_play };
+        let stats = &mut node.statistics;
+
+        stats.visit_count += 1.0;
+        stats.total_action_value += {
+            if perspective == node_perspective {
+                value
+            } else {
+                1.0 - value
+            }
+        };
+    }
 }
 
 pub struct AlphaZeroConfig {
@@ -136,7 +154,7 @@ pub struct AlphaZeroConfig {
     c_init: f64,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 enum Player {
     Left,
     Right,
