@@ -50,39 +50,27 @@ impl AlphaZero {
 
     #[allow(non_snake_case)]
     fn select_child(&self, game_state: &GameState, node: Node) -> (Action, Node) {
-        let mut best: Option<(f64, (Action, Node))> = None;
-        let node = node.borrow();
-        let Some(action_map) = node.children.as_ref() else {
-            panic!("Should not have been called on a leaf node");
+        let parent_statistics = {
+            let node = node.borrow();
+            node.statistics.clone()
         };
-        let parent_statistics = node.statistics.clone();
         let config = &self.config.ucb_parameter;
 
         let C = f64::log2((1.0 + parent_statistics.visit_count + config.c_base) / config.c_base)
             + config.c_init;
         let SqrtN = f64::sqrt(parent_statistics.visit_count);
 
-        for (action, node) in action_map.iter() {
-            let child_statistics = node.borrow().statistics.clone();
-
+        let ucb_score = move |child_statistics: Stats| {
             let N = child_statistics.visit_count;
             let P = child_statistics.prior_probability;
             let U = C * P * SqrtN / (1.0 + N);
 
             let Q = child_statistics.total_action_value / N;
 
-            let metric = Q + U;
-            let Some((best_metric, _)) = &best else {
-                best = Some((metric, (action.clone(), node.clone())));
-                continue;
-            };
+            Q + U
+        };
 
-            if metric > *best_metric {
-                best = Some((metric, (action.clone(), node.clone())));
-            }
-        }
-
-        let Some((_, result)) = best else {
+        let Ok(result) = Tree::best_child(node, ucb_score) else {
             panic!("No options to select from for leaf Nodes");
         };
 
@@ -91,31 +79,21 @@ impl AlphaZero {
 
     ///Select the Action with the highest visit count
     fn select_action(&self, game_state: &GameState, node: Node) -> Action {
-        let mut best: Option<(f64, (Action, Node))> = None;
-        let node = node.borrow();
-        let Some(action_map) = node.children.as_ref() else {
-            panic!("Should not have been called on a leaf node");
-        };
-        for (action, node) in action_map.iter() {
-            let child_statistics = node.borrow().statistics.clone();
 
-            let metric = child_statistics.visit_count;
-            let Some((best_metric, _)) = &best else {
-                best = Some((metric, (action.clone(), node.clone())));
-                continue;
-            };
-
-            if metric > *best_metric {
-                best = Some((metric, (action.clone(), node.clone())));
-            }
+        fn key(stats: Stats) -> f64 {
+            stats.visit_count
         }
 
-        let Some((_, (result, _))) = best else {
+        let Ok((result, _)) = Tree::best_child(node, key) else {
             panic!("No options to select from for leaf Nodes");
         };
 
         return result;
     }
+}
+
+fn ucb_score(stats: Stats) -> f64 {
+    0.0
 }
 
 fn evaluate(node: Node, game_state: &GameState, network: &NetworkLocation) -> f64 {

@@ -14,7 +14,42 @@ impl Tree {
             children: None,
         }))
     }
+
+    /**Select the child node the maximises some key,
+     * 
+     * #Errors
+     * If the given Node has no children the a LeafNode error will be returned
+     */
+    pub fn best_child<Key>(node: Node, key: Key) -> Result<(Action, Node), LeafNode>
+    where Key: Fn(Stats) -> f64,
+    {
+        let mut best: Option<(f64, (Action, Node))> = None;
+        let node = node.borrow();
+        let Some(action_map) = node.children.as_ref() else {
+            return Err(LeafNode);
+        };
+        for (action, node) in action_map.iter() {
+            let child_statistics = node.borrow().statistics.clone();
+
+            let metric = key(child_statistics);
+            let Some((best_metric, _)) = &best else {
+                best = Some((metric, (action.clone(), node.clone())));
+                continue;
+            };
+
+            if metric > *best_metric {
+                best = Some((metric, (action.clone(), node.clone())));
+            }
+        }
+        let Some((_, result)) = best else {
+            return Err(LeafNode);
+        };
+
+        Ok(result)
+    }
 }
+
+pub struct LeafNode;
 
 pub type Node = Rc<RefCell<Tree>>;
 
