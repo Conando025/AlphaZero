@@ -1,9 +1,7 @@
 #![allow(unused)]
 
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::RwLock;
-use std::{cell::RefCell, rc::Rc};
 
 pub mod tree;
 use tree::*;
@@ -23,7 +21,7 @@ impl AlphaZero {
     fn run_mcts(&self, game_state: GameState) -> Action {
         let root: Node = Tree::new(Stats::init(0.0), game_state.perspective());
         evaluate(root.clone(), &game_state, &self.network_location);
-        let mut search_path: Vec<Rc<RefCell<Tree>>> = Vec::new();
+        let mut search_path: Vec<Node> = Vec::new();
 
         for _ in 0..100 {
             let mut node: Node = root.clone();
@@ -90,10 +88,6 @@ impl AlphaZero {
 
         return result;
     }
-}
-
-fn ucb_score(stats: Stats) -> f64 {
-    0.0
 }
 
 fn evaluate(node: Node, game_state: &GameState, network: &NetworkLocation) -> f64 {
