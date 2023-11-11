@@ -117,14 +117,38 @@ impl AlphaZero {
         }
 
         let Some((_, result)) = best else {
-            panic!("No option to select for leaf Nodes");
+            panic!("No options to select from for leaf Nodes");
         };
 
         return result;
     }
 
+    ///Select the Action with the highest visit count
     fn select_action(&self, game_state: &GameState, node: Node) -> Action {
-        todo!()
+        let mut best: Option<(f64, (Action, Node))> = None;
+        let node = node.borrow();
+        let Some(action_map) = node.children.as_ref() else {
+            panic!("Should not have been called on a leaf node");
+        };
+        for (action, node) in action_map.iter() {
+            let child_statistics = node.borrow().statistics.clone();
+
+            let metric = child_statistics.visit_count;
+            let Some((best_metric, _)) = &best else {
+                best = Some((metric, (action.clone(), node.clone())));
+                continue;
+            };
+
+            if metric > *best_metric {
+                best = Some((metric, (action.clone(), node.clone())));
+            }
+        }
+
+        let Some((_, (result, _))) = best else {
+            panic!("No options to select from for leaf Nodes");
+        };
+
+        return result;
     }
 }
 
