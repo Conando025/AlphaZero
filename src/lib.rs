@@ -2,50 +2,15 @@
 
 use std::collections::BTreeMap;
 use std::mem::MaybeUninit;
-use std::{cell::RefCell, rc::Rc};
 use std::path::PathBuf;
 use std::sync::RwLock;
+use std::{cell::RefCell, rc::Rc};
 
-pub struct Tree {
-    statistics: Stats,
-    to_play: Player,
-    children: Option<BTreeMap<Action, Node>>,
-}
+pub mod tree;
+use tree::*;
 
-type Node = Rc<RefCell<Tree>>;
-
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
-pub struct Action {}
-
-#[derive(Clone)]
-pub struct Stats {
-    visit_count: f64,
-    total_action_value: f64,
-    prior_probability: f64,
-}
-
-impl Stats {
-    fn init(prior: f64) -> Self {
-        Self {
-            visit_count: 0.0,
-            total_action_value: 0.0,
-            prior_probability: prior,
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct GameState {}
-
-impl GameState {
-    fn apply(&mut self, action: Action) {
-        todo!("Apply the action");
-    }
-
-    fn perspective(&self) -> Player {
-        todo!();
-    }
-}
+pub mod game;
+use game::*;
 
 pub struct AlphaZero {
     config: AlphaZeroConfig,
@@ -54,11 +19,7 @@ pub struct AlphaZero {
 
 impl AlphaZero {
     fn run_mcts(&self, game_state: GameState) -> Action {
-        let root: Node = Rc::new(RefCell::new(Tree {
-            statistics: Stats::init(0.0),
-            to_play: game_state.perspective(),
-            children: None,
-        }));
+        let root: Node = Tree::new(Stats::init(0.0), game_state.perspective());
         evaluate(root.clone(), &game_state, &self.network_location);
         let mut search_path: Vec<Rc<RefCell<Tree>>> = Vec::new();
 
@@ -160,7 +121,7 @@ fn evaluate(node: Node, game_state: &GameState, network: &NetworkLocation) -> f6
         panic!("The Lock to the Network has been poisoned.");
     };
     let network_path = network_path.as_path();
-    
+
     todo!("Actually eval the position");
 }
 
@@ -251,10 +212,4 @@ struct TrainingParameters {
     weight_decay: f64,
     momentum: f64,
     learning_rate_schedule: Vec<(usize, f64)>,
-}
-
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-enum Player {
-    Left,
-    Right,
 }
