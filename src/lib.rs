@@ -1,7 +1,6 @@
 #![allow(unused)]
 
 use std::collections::BTreeMap;
-use std::mem::MaybeUninit;
 use std::path::PathBuf;
 use std::sync::RwLock;
 use std::{cell::RefCell, rc::Rc};
@@ -11,6 +10,9 @@ use tree::*;
 
 pub mod game;
 use game::*;
+
+pub mod alpha_config;
+use alpha_config::*;
 
 pub struct AlphaZero {
     config: AlphaZeroConfig,
@@ -143,73 +145,3 @@ fn backpropagate(path: &Vec<Node>, value: f64, perspective: Player) {
 }
 
 type NetworkLocation = RwLock<PathBuf>;
-
-pub struct AlphaZeroConfig {
-    actor_count: usize,
-    ucb_parameter: UCBParameters,
-    noise_parameters: NoiseParameters,
-    simulation_parameters: SimulationParameters,
-    training_parameters: TrainingParameters,
-}
-
-impl Default for AlphaZeroConfig {
-    fn default() -> Self {
-        AlphaZeroConfig {
-            actor_count: 5000,
-            ucb_parameter: UCBParameters {
-                c_base: 19652.0,
-                c_init: 1.25,
-            },
-            noise_parameters: NoiseParameters {
-                dirichlet_alpha: 0.3,
-                exploration_fraction: 0.25,
-            },
-            simulation_parameters: SimulationParameters {
-                number_of_sampling_moves: 30,
-                maximum_number_of_moves: 512,
-                number_of_simulations: 800,
-            },
-            training_parameters: TrainingParameters {
-                steps: 700_000,
-                checkpoint_interval: 1_000,
-                window_size: 1_000_000,
-                batch_size: 4096,
-                weight_decay: 1e-4,
-                momentum: 0.9,
-                learning_rate_schedule: vec![
-                    (000_000, 2e-1),
-                    (100_000, 2e-2),
-                    (300_000, 2e-3),
-                    (500_000, 2e-4),
-                ],
-            },
-        }
-    }
-}
-
-struct UCBParameters {
-    c_base: f64,
-    c_init: f64,
-}
-
-struct NoiseParameters {
-    dirichlet_alpha: f64,
-    exploration_fraction: f64,
-}
-
-struct SimulationParameters {
-    number_of_sampling_moves: usize,
-    maximum_number_of_moves: usize,
-    number_of_simulations: usize,
-}
-
-struct TrainingParameters {
-    steps: usize,
-    checkpoint_interval: usize,
-    window_size: usize,
-    batch_size: usize,
-
-    weight_decay: f64,
-    momentum: f64,
-    learning_rate_schedule: Vec<(usize, f64)>,
-}
