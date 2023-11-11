@@ -3,6 +3,8 @@
 use std::collections::BTreeMap;
 use std::mem::MaybeUninit;
 use std::{cell::RefCell, rc::Rc};
+use std::path::PathBuf;
+use std::sync::RwLock;
 
 pub struct Tree {
     statistics: Stats,
@@ -47,6 +49,7 @@ impl GameState {
 
 pub struct AlphaZero {
     config: AlphaZeroConfig,
+    network_location: NetworkLocation,
 }
 
 impl AlphaZero {
@@ -56,7 +59,7 @@ impl AlphaZero {
             to_play: game_state.perspective(),
             children: None,
         }));
-        evaluate(root.clone(), &game_state);
+        evaluate(root.clone(), &game_state, &self.network_location);
         let mut search_path: Vec<Rc<RefCell<Tree>>> = Vec::new();
 
         for _ in 0..100 {
@@ -75,7 +78,7 @@ impl AlphaZero {
                 is_leaf = node.borrow().children.is_none();
             }
 
-            let value = evaluate(node, &game_state);
+            let value = evaluate(node, &game_state, &self.network_location);
             backpropagate(&search_path, value, game_state.perspective());
         }
 
@@ -152,7 +155,12 @@ impl AlphaZero {
     }
 }
 
-fn evaluate(node: Node, game_state: &GameState) -> f64 {
+fn evaluate(node: Node, game_state: &GameState, network: &NetworkLocation) -> f64 {
+    let Ok(network_path) = network.read() else {
+        panic!("The Lock to the Network has been poisoned.");
+    };
+    let network_path = network_path.as_path();
+    
     todo!("Actually eval the position");
 }
 
@@ -172,6 +180,8 @@ fn backpropagate(path: &Vec<Node>, value: f64, perspective: Player) {
         };
     }
 }
+
+type NetworkLocation = RwLock<PathBuf>;
 
 pub struct AlphaZeroConfig {
     actor_count: usize,
