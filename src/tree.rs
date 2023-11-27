@@ -2,14 +2,14 @@ use super::*;
 use std::collections::BTreeMap;
 use std::{cell::RefCell, rc::Rc};
 
-pub struct Tree {
+pub struct Tree<const N: usize, const I: usize, const O: usize, G: Game<N, I, O>> {
     pub statistics: Stats,
     pub to_play: Player,
-    pub children: Option<BTreeMap<Action, Node>>,
+    pub children: Option<BTreeMap<G::Action, Node<N, I, O, G>>>,
 }
 
-impl Tree {
-    pub fn new(statistics: Stats, to_play: Player) -> Node {
+impl<const N: usize, const I: usize, const O: usize, G: Game<N, I, O>> Tree<N, I, O, G> {
+    pub fn new(statistics: Stats, to_play: Player) -> Node<N, I, O, G> {
         Rc::new(RefCell::new(Tree {
             statistics,
             to_play,
@@ -18,14 +18,18 @@ impl Tree {
     }
 
     /**Select the child node the maximises some key,
-     * 
+     *
      * #Errors
      * If the given Node has no children the a LeafNode error will be returned
      */
-    pub fn best_child<Key>(node: Node, key: Key) -> Result<(Action, Node), LeafNode>
-    where Key: Fn(Stats) -> f64,
+    pub fn best_child<Key>(
+        node: Node<N, I, O, G>,
+        key: Key,
+    ) -> Result<(G::Action, Node<N, I, O, G>), LeafNode>
+    where
+        Key: Fn(Stats) -> f64,
     {
-        let mut best: Option<(f64, (Action, Node))> = None;
+        let mut best: Option<(f64, (G::Action, Node<N, I, O, G>))> = None;
         let node = node.borrow();
         let Some(action_map) = node.children.as_ref() else {
             return Err(LeafNode);
@@ -53,7 +57,7 @@ impl Tree {
 
 pub struct LeafNode;
 
-pub type Node = Rc<RefCell<Tree>>;
+pub type Node<const N: usize, const I: usize, const O: usize, G> = Rc<RefCell<Tree<N, I, O, G>>>;
 
 #[derive(Clone)]
 pub struct Stats {
